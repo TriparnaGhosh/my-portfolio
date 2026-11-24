@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
 export async function login(req, res) {
-  const { password } = req.body;
+  const { password } = req.body || {};
   if (!password) return res.status(400).json({ message: "Password is required" });
   const user = await User.findOne({ role: "admin" });
   if (!user || !(await bcrypt.compare(password, user.password))) {

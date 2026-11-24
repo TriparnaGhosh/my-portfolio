@@ -1,0 +1,51 @@
+.lego-waving-avatar {
+  display: inline-block;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 300% 100%;
+  image-rendering: auto;
+  vertical-align: middle;
+}
+
+.lego-waving-avatar--crisp {
+  image-rendering: pixelated;
+}
+
+.lego-waving-avatar--loop {
+  animation: lego-wave-loop var(--lego-cycle-duration) linear infinite;
+}
+
+.lego-waving-avatar--once {
+  animation: lego-wave-once var(--lego-cycle-duration) linear 1 forwards;
+}
+
+.lego-waving-avatar--hover:not(:hover):not(:focus-visible) {
+  animation-name: none;
+  background-position: 0 0;
+}
+
+.lego-waving-avatar--hidden {
+  animation-play-state: paused;
+}
+
+@keyframes lego-wave-loop {
+  0%, 33.333% { background-position: 0 0; }
+  33.334%, 66.666% { background-position: 50% 0; }
+  66.667%, 99.999% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes lego-wave-once {
+  0%, 33.333% { background-position: 0 0; }
+  33.334%, 66.666% { background-position: 50% 0; }
+  66.667%, 100% { background-position: 100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lego-waving-avatar {
+    animation: none !important;
+    background-position: 0 0;
+  }
+}

@@ -7,6 +7,7 @@ import "./project-collage.css";
 import "./skills.css";
 import "./certificates.css";
 import "./navbar.css";
+import "./contact-motion.css";
 
 export default function App() {
   return <BrowserRouter><AuthProvider><Routes><Route path="/" element={<Home/>}/><Route path="/admin/*" element={<Admin/>}/></Routes></AuthProvider></BrowserRouter>;

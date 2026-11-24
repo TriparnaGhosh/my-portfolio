@@ -1,0 +1,42 @@
+.cursor-follower {
+  position: fixed;
+  z-index: 9999;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(43, 69, 48, .6);
+  border-radius: 50%;
+  background: rgba(216, 243, 106, .12);
+  box-shadow: 0 2px 12px rgba(37, 59, 39, .12);
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+  transition: border-color .2s ease, background-color .2s ease;
+}
+
+.cursor-follower.is-interactive {
+  border-color: rgba(43, 69, 48, .85);
+  background: rgba(216, 243, 106, .24);
+}
+
+.cursor-follower-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #304b32;
+}
+
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .cursor-follower {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

@@ -56,3 +56,27 @@ export const skillGroups = [
     ]
   }
 ];
+
+export const skillIconDefinitions = {
+  html5: { icons: [siHtml5] },
+  css3: { icons: [siCss] },
+  javascript: { icons: [siJavascript] },
+  react: { icons: [siReact] },
+  nodejs: { icons: [siNodedotjs] },
+  express: { icons: [siExpress] },
+  mongodb: { icons: [siMongodb] },
+  mysql: { icons: [siMysql] },
+  python: { icons: [siPython] },
+  pandas: { icons: [siPandas] },
+  numpy: { icons: [siNumpy] },
+  matplotlib: { image: "/images/matplotlib-original.svg" },
+  neuralnetwork: { icon: Network },
+  "git-github": { icons: [siGit, siGithub] },
+  "HTML & CSS": { icons: [siHtml5, siCss] },
+  React: { icons: [siReact] }
+};
+
+export const skillIconNames = [
+  "html5", "css3", "javascript", "react", "nodejs", "express", "mongodb",
+  "mysql", "python", "pandas", "numpy", "matplotlib", "neuralnetwork", "git-github"
+];

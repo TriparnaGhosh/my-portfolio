@@ -1,42 +1,66 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Download, Github, Linkedin, Mail, Sparkles } from "lucide-react";
+import { ArrowUpRight, Download, Github, Instagram, Linkedin, Mail, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import api from "../services/api";
 import SkillCard from "../components/SkillCard";
 import CertificateGallery from "../components/CertificateGallery";
+import LegoWavingAvatar from "../components/LegoWavingAvatar";
+import CursorFollower from "../components/CursorFollower";
 import Navbar from "../components/Navbar";
-import { skillGroups } from "../data/skills";
+import { skillGroups, skillIconDefinitions } from "../data/skills";
 import certificateAssets from "virtual:portfolio-certificates";
 
 const fallback = {
   profile: { name: "Triparna Ghosh", role: "Full-stack developer", tagline: "Ideas, designed and shipped.", bio: "I create accessible, high-performing web experiences with a thoughtful eye for detail.", email: "triparnaghosh87@gmail.com", location: "India", avatar: "/images/me.jpg" },
   skills: [{ name: "HTML & CSS", category: "Frontend", level: 90 }, { name: "JavaScript", category: "Frontend", level: 78 }, { name: "React", category: "Frontend", level: 72 }, { name: "Java", category: "Backend", level: 65 }],
   projects: [{ title: "TinDog", description: "A playful, responsive landing page for a dog dating app.", tags: ["HTML", "CSS"], image: "/images/me.jpg" }, { title: "Portfolio website", description: "A personal space for selected work, skills, and ideas.", tags: ["HTML", "CSS"], image: "/images/css.jpg" }],
-  certificates: [],
+  certificates: [
+    { title: "AI-Fluency", fileUrl: "/certificates/ai-fluency_certificate.pdf", published: true, order: 0 },
+    { title: "Generative AI", fileUrl: "/certificates/CertificateOfCompletion_What Is Generative AI.pdf", published: true, order: 1 },
+    { title: "Elements of AI", fileUrl: "/certificates/elements-of-ai_certificate.png", published: true, order: 2 },
+    { title: "Prime AI/ML", fileUrl: "/certificates/prime-ai:ml_certificate.pdf", published: true, order: 3 },
+    { title: "Web Development", fileUrl: "/certificates/web-development_certificate.pdf", published: true, order: 4 }
+  ],
   experience: [],
   socials: {}
 };
 
 function certificateFileName(url = "") {
   const fileName = String(url).split(/[?#]/)[0].split("/").pop() || "";
-  return decodeURIComponent(fileName).toLowerCase();
+  try {
+    return decodeURIComponent(fileName).toLowerCase();
+  } catch {
+    return fileName.toLowerCase();
+  }
 }
 
-function titleFromCertificateFile(fileName = "") {
-  return fileName
-    .replace(/\.[^.]+$/, "")
-    .replace(/^certificateofcompletion[_\s-]*/i, "")
-    .replace(/[_-]+/g, " ")
-    .trim();
+function groupSkills(skills) {
+  const groups = new Map();
+  for (const skill of skills) {
+    const category = skill.category || "Other";
+    if (!groups.has(category)) groups.set(category, []);
+    const { icon: iconName, ...skillData } = skill;
+    const iconDefinition = skillIconDefinitions[iconName] || skillIconDefinitions[skill.name] || {};
+    groups.get(category).push({ ...skillData, ...iconDefinition });
+  }
+  return Array.from(groups, ([category, groupedSkills]) => ({ category, skills: groupedSkills }));
 }
 
 export default function Home() {
   const [data, setData] = useState(fallback);
+  const [databaseLoaded, setDatabaseLoaded] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [status, setStatus] = useState("");
   const processTrackRef = useRef(null);
   const skillsTrackRef = useRef(null);
-  useEffect(() => { api.get("/portfolio").then(({ data }) => data.profile && setData({ ...fallback, ...data })).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get("/portfolio").then(({ data }) => {
+      if (data.profile) {
+        setData({ ...fallback, ...data });
+        setDatabaseLoaded(true);
+      }
+    }).catch(() => {});
+  }, []);
   useEffect(() => {
     let lastScrollY = window.scrollY;
     let processOffset = window.innerWidth;
@@ -88,22 +112,21 @@ export default function Home() {
     };
   }, []);
   const { profile, skills, projects, socials, resumeUrl, resumeName } = data;
+  const publishedSkills = (skills || []).filter(skill => skill.published !== false);
+  const publishedProjects = projects.filter(project => project.published !== false);
+  const skillGroupsToDisplay = useMemo(
+    () => databaseLoaded ? groupSkills(publishedSkills) : skillGroups,
+    [databaseLoaded, publishedSkills]
+  );
   const certificates = useMemo(() => {
-    const saved = (data.certificates || []).filter(item => item.published !== false && item.fileUrl);
-    const localNames = new Set(certificateAssets.map(asset => asset.name.toLowerCase()));
-    const local = certificateAssets.map(asset => {
-      const metadata = saved.find(item => certificateFileName(item.fileUrl) === asset.name.toLowerCase());
-      return {
-        ...asset,
-        ...metadata,
-        fileUrl: asset.url,
-        title: metadata?.title || titleFromCertificateFile(asset.name)
-      };
-    });
-    const uploaded = saved
-      .filter(item => !localNames.has(certificateFileName(item.fileUrl)))
-      .map(item => ({ ...item, title: item.title || titleFromCertificateFile(certificateFileName(item.fileUrl)) }));
-    return [...local, ...uploaded].sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+    const localAssets = new Map(certificateAssets.map(asset => [asset.name.toLowerCase(), asset]));
+    return (data.certificates || [])
+      .filter(item => item.published !== false && item.fileUrl)
+      .sort((left, right) => (left.order ?? Number.MAX_SAFE_INTEGER) - (right.order ?? Number.MAX_SAFE_INTEGER))
+      .map(certificate => {
+        const localAsset = localAssets.get(certificateFileName(certificate.fileUrl));
+        return { ...certificate, type: certificate.type || localAsset?.type };
+      });
   }, [data.certificates]);
   const achievements = useMemo(
     () => (data.experience || [])
@@ -118,6 +141,7 @@ export default function Home() {
     catch (error) { setStatus(error.response?.data?.message || "Could not send message."); }
   }
   return <main>
+    <CursorFollower/>
     <Navbar email={profile.email} resumeUrl={resumeUrl && resumeDownloadUrl} resumeName={resumeName}/>
     <section className="hero" id="top"><motion.div className="hero-copy" initial={{ opacity: 0, x: -90 }} animate={{ opacity: 1, x: 0 }} transition={{ type: "spring", stiffness: 85, damping: 13, delay: 0.1 }}><p className="eyebrow"><Sparkles size={15}/> Available for new opportunities</p><h1>Hi, I’m<br/><em>Triparna</em> 👋</h1><p className="hero-text">A passionate developer who loves turning creative ideas into beautiful, interactive, and meaningful digital experiences.</p><div className="hero-actions"><a className="button primary" href="#work">See my work <ArrowUpRight size={17}/></a>{resumeUrl ? <a className="button resume-button" href={resumeDownloadUrl} download={resumeName || "Triparna-Ghosh-Resume.pdf"}>Download resume <Download size={17}/></a> : <a className="text-link" href="#contact">Get in touch</a>}</div></motion.div><motion.div className="hero-art" initial={{ opacity: 0, x: 110, rotate: 5 }} animate={{ opacity: 1, x: 0, rotate: 0 }} transition={{ type: "spring", stiffness: 75, damping: 12, delay: 0.2 }}><div className="orb"/><div className="portrait-frame"><img src="/images/miii-cutout.png" alt={profile.name}/></div></motion.div></section>
     <section className="cross-straps" aria-label="Process and skills">
@@ -132,9 +156,9 @@ export default function Home() {
         <div className="marquee-track" ref={skillsTrackRef}>
           {Array.from({ length: 3 }).map((_, copyIndex) => (
             <span key={copyIndex} aria-hidden={copyIndex > 0}>
-              {skills.map((skill, index) => (
+              {publishedSkills.map((skill, index) => (
                 <span className="skill-chip" key={`${copyIndex}-${skill.name}`}>
-                  {skill.name}{index < skills.length - 1 && <b>·</b>}
+                  {skill.name}{index < publishedSkills.length - 1 && <b>·</b>}
                 </span>
               ))}
             </span>
@@ -148,7 +172,7 @@ export default function Home() {
         <h2>From Concept<br/><em>to Creation</em></h2>
       </div>
       <div className="projects">
-        {projects.map((project, index) => (
+        {publishedProjects.map((project, index) => (
           <motion.article
             className="project-card"
             key={project.title}
@@ -176,18 +200,26 @@ export default function Home() {
         ))}
       </div>
     </section>
-    <CertificateGallery certificates={certificates} achievements={achievements}/>
     <section className="section about-grid" id="about">
       <div className="section-heading">
         <p className="eyebrow">About me</p>
         <h2>My Tech<br/><em>Arsenal</em></h2>
         <p className="muted tech-intro">A collection of technologies and tools I use to build, experiment, and bring creative ideas to life through code.</p>
+        <div className="about-doll">
+          <LegoWavingAvatar
+            src="/doll_img_transparent.png"
+            alt="LEGO-style doll waving"
+            width="clamp(140px, 40vw, 220px)"
+            fps={5}
+            pauseWhenHidden
+          />
+        </div>
       </div>
       <div className="skill-list" id="skills">
         <h3 className="skills-heading">Skills</h3>
         <div className="skill-groups">
-          {skillGroups.map((group, groupIndex) => {
-            const indexOffset = skillGroups.slice(0, groupIndex).reduce((total, item) => total + item.skills.length, 0);
+          {skillGroupsToDisplay.map((group, groupIndex) => {
+            const indexOffset = skillGroupsToDisplay.slice(0, groupIndex).reduce((total, item) => total + item.skills.length, 0);
             return (
               <div className="skill-group" key={group.category}>
                 <h4 className="skill-group-title">{group.category}</h4>
@@ -202,7 +234,8 @@ export default function Home() {
         </div>
       </div>
     </section>
+    <CertificateGallery certificates={certificates} achievements={achievements}/>
     <section className="contact-section" id="contact"><p className="eyebrow">Say hello</p><h2>Have a good idea?<br/><em>Let’s talk.</em></h2><form onSubmit={submit}><input required placeholder="Your name" value={form.name} onChange={e => setForm({...form, name: e.target.value})}/><input required type="email" placeholder="Email address" value={form.email} onChange={e => setForm({...form, email: e.target.value})}/><textarea required placeholder="Tell me a little about it…" rows="4" value={form.message} onChange={e => setForm({...form, message: e.target.value})}/><button className="button primary" type="submit">Send message <ArrowUpRight size={17}/></button><small>{status}</small></form></section>
-    <footer><span>© {new Date().getFullYear()} {profile.name}</span><div className="socials">{socials.linkedin && <a href={socials.linkedin}><Linkedin size={18}/></a>}{socials.github && <a href={socials.github}><Github size={18}/></a>}<a href={`mailto:${profile.email}`}><Mail size={18}/></a></div></footer>
+    <footer><span>© {new Date().getFullYear()} {profile.name}</span><div className="socials">{socials.linkedin && <a href={socials.linkedin} aria-label="LinkedIn"><Linkedin size={18}/></a>}{socials.github && <a href={socials.github} aria-label="GitHub"><Github size={18}/></a>}{socials.instagram ? <a href={socials.instagram} aria-label="Instagram" target="_blank" rel="noreferrer"><Instagram size={18}/></a> : <span role="img" aria-label="Instagram"><Instagram size={18}/></span>}<a href={`mailto:${profile.email}`} aria-label="Email"><Mail size={18}/></a></div></footer>
   </main>;
 }

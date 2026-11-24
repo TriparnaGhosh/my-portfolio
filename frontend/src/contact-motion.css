@@ -1,0 +1,80 @@
+.contact-section {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.contact-section::before,
+.contact-section::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  will-change: transform;
+}
+
+.contact-section::before {
+  background:
+    radial-gradient(ellipse at 18% 30%, rgba(52, 80, 43, .2), transparent 38%),
+    radial-gradient(ellipse at 78% 72%, rgba(240, 250, 174, .38), transparent 42%);
+  animation: contact-glow-drift 22s ease-in-out infinite alternate;
+}
+
+.contact-section::after {
+  background:
+    radial-gradient(ellipse at 82% 18%, rgba(89, 117, 52, .12), transparent 32%),
+    radial-gradient(ellipse at 28% 82%, rgba(255, 255, 220, .3), transparent 38%);
+  animation: contact-glow-drift-reverse 28s ease-in-out infinite alternate;
+}
+
+.contact-section > * {
+  position: relative;
+  z-index: 1;
+}
+
+.contact-section form,
+.contact-section form input,
+.contact-section form textarea,
+.contact-section form small {
+  color: var(--ink);
+}
+
+.contact-section form button {
+  color: var(--cream);
+}
+
+.contact-section form input,
+.contact-section form textarea {
+  border-bottom-color: #aebf4c;
+}
+
+.contact-section form input::placeholder,
+.contact-section form textarea::placeholder {
+  color: rgba(23, 32, 29, .72);
+  opacity: 1;
+}
+
+.contact-section form input:focus,
+.contact-section form textarea:focus {
+  border-color: var(--ink);
+}
+
+@keyframes contact-glow-drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+  to { transform: translate3d(1.5%, 1%, 0) scale(1.035); }
+}
+
+@keyframes contact-glow-drift-reverse {
+  from { transform: translate3d(1%, 1.5%, 0) scale(1.025); }
+  to { transform: translate3d(-1%, -1.5%, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-section::before,
+  .contact-section::after {
+    animation: none;
+    transform: none;
+    will-change: auto;
+  }
+}

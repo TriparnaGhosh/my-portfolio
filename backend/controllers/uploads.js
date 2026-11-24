@@ -16,8 +16,9 @@ function configureCloudinary() {
 }
 
 export async function uploadMedia(req, res) {
-  configureCloudinary();
   if (!req.file) return res.status(400).json({ message: "Choose a file to upload" });
+  configureCloudinary();
+  if (!await Portfolio.exists({})) return res.status(404).json({ message: "Portfolio not found" });
 
   const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
   if (!allowedTypes.includes(req.file.mimetype)) {
@@ -44,19 +45,22 @@ export async function uploadMedia(req, res) {
     size: req.file.size,
     publicId: result.public_id
   };
-  const portfolio = await Portfolio.findOne();
+  const portfolio = await Portfolio.findOneAndUpdate({}, { $push: { media: asset } }, {
+    new: true,
+    runValidators: true
+  });
   if (!portfolio) return res.status(404).json({ message: "Portfolio not found" });
-  portfolio.media = [...(portfolio.media || []), asset];
-  await portfolio.save();
-  res.status(201).json(asset);
+  const savedAsset = portfolio.media.find(item => item.publicId === result.public_id);
+  res.status(201).json(savedAsset);
 }
 
 export async function uploadResume(req, res) {
-  configureCloudinary();
   if (!req.file) return res.status(400).json({ message: "Choose a PDF resume to upload" });
+  configureCloudinary();
   if (req.file.mimetype !== "application/pdf") {
     return res.status(400).json({ message: "Resume must be a PDF file" });
   }
+  if (!await Portfolio.exists({})) return res.status(404).json({ message: "Portfolio not found" });
 
   const result = await new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -66,11 +70,10 @@ export async function uploadResume(req, res) {
     stream.end(req.file.buffer);
   });
 
-  const portfolio = await Portfolio.findOne();
-  if (!portfolio) return res.status(404).json({ message: "Portfolio not found" });
-  portfolio.resumeUrl = result.secure_url;
-  portfolio.resumeName = req.file.originalname;
-  await portfolio.save();
+  const portfolio = await Portfolio.updateOne({}, {
+    $set: { resumeUrl: result.secure_url, resumeName: req.file.originalname }
+  });
+  if (!portfolio.matchedCount) return res.status(404).json({ message: "Portfolio not found" });
   res.status(201).json({ url: result.secure_url, name: req.file.originalname });
 }
 
@@ -99,7 +102,9 @@ export async function deleteMedia(req, res) {
   const asset = (portfolio.media || []).find(item => String(item._id) === req.params.id);
   if (!asset) return res.status(404).json({ message: "Media asset not found" });
 
-  if (JSON.stringify(portfolio).includes(asset.url)) {
+  const portfolioContent = portfolio.toObject();
+  delete portfolioContent.media;
+  if (JSON.stringify(portfolioContent).includes(asset.url)) {
     return res.status(409).json({ message: "Remove or replace this asset from portfolio content before deleting it" });
   }
 
@@ -107,7 +112,6 @@ export async function deleteMedia(req, res) {
     resource_type: asset.type === "application/pdf" ? "raw" : "image",
     invalidate: true
   });
-  portfolio.media = (portfolio.media || []).filter(item => String(item._id) !== req.params.id);
-  await portfolio.save();
+  await Portfolio.updateOne({ _id: portfolio._id }, { $pull: { media: { _id: asset._id } } });
   res.json({ message: "Media deleted" });
 }

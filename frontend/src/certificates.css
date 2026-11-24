@@ -19,13 +19,22 @@
 
 .certificate-gallery {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: start;
   gap: 34px 30px;
 }
 
 .certificate-card {
   min-width: 0;
+  grid-column: span 2;
+}
+
+.certificate-card:nth-child(4):nth-last-child(2) {
+  grid-column: 2 / span 2;
+}
+
+.certificate-card:nth-child(5):last-child {
+  grid-column: 4 / span 2;
 }
 
 .certificate-frame {
@@ -320,6 +329,12 @@
   .certificate-gallery {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 27px 24px;
+  }
+
+  .certificate-card,
+  .certificate-card:nth-child(4):nth-last-child(2),
+  .certificate-card:nth-child(5):last-child {
+    grid-column: auto;
   }
 }
 

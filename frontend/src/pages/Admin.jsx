@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, Archive, ArrowUpRight, BarChart3, Bell, BriefcaseBusiness, Check,
   ChevronDown, CircleUserRound, FileText, FolderKanban, Globe2, GraduationCap,
@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { skillIconNames } from "../data/skills";
 
 const emptyPortfolio = {
   profile: {}, hero: {}, about: {}, skills: [], projects: [], certificates: [],
@@ -26,11 +27,10 @@ const navGroups = [
 ];
 
 const titles = Object.fromEntries(navGroups.flatMap(group => group.items.map(item => [item.id, item.label])));
-const clone = value => JSON.parse(JSON.stringify(value));
 
-function Field({ label, value, onChange, multiline = false, type = "text", placeholder }) {
+function Field({ label, value, onChange, multiline = false, type = "text", placeholder, required = false, disabled = false, options }) {
   const Control = multiline ? "textarea" : "input";
-  return <label className="cms-field"><span>{label}</span><Control type={type} value={value ?? ""} placeholder={placeholder} onChange={event => onChange(event.target.value)} /></label>;
+  return <label className="cms-field"><span>{label}</span>{options ? <select value={value ?? ""} required={required} disabled={disabled} onChange={event => onChange(event.target.value)}><option value="">Choose one</option>{options.map(option => <option key={option} value={option}>{option[0].toUpperCase() + option.slice(1)}</option>)}</select> : <Control type={type} value={value ?? ""} placeholder={placeholder} required={required} disabled={disabled} onChange={event => onChange(event.target.value)} />}</label>;
 }
 
 function EmptyState({ title, text, action, onAction }) {
@@ -43,7 +43,7 @@ function Modal({ title, children, onClose }) {
 
 export default function Admin() {
   const { user, signIn, signOut } = useAuth();
-  const [credentials, setCredentials] = useState({ password: "triparna@04031109" });
+  const [credentials, setCredentials] = useState({ password: "" });
   const [portfolio, setPortfolio] = useState(null);
   const [messages, setMessages] = useState([]);
   const [active, setActive] = useState("dashboard");
@@ -51,6 +51,8 @@ export default function Admin() {
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const savingRef = useRef(false);
   const searchResults = useMemo(() => {
     if (!search.trim() || !portfolio) return [];
     const query = search.toLowerCase();
@@ -89,7 +91,7 @@ export default function Admin() {
           socials: { ...emptyPortfolio.socials, ...portfolioResult.value.data?.socials }
         });
       } else {
-        setPortfolio(clone(emptyPortfolio));
+        setPortfolio(null);
       }
 
       if (messagesResult.status === "fulfilled") {
@@ -117,17 +119,28 @@ export default function Admin() {
 
     loadWorkspace();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, loadAttempt]);
 
   if (!user) return <Login credentials={credentials} setCredentials={setCredentials} signIn={signIn} error={error} setError={setError} />;
-  if (!portfolio) return <div className="cms-loading"><div className="loading-mark">TG</div><p>Loading your workspace…</p></div>;
+  if (!portfolio) return <div className="cms-loading">{error ? <><p className="form-error">{error}</p><button className="cms-button primary" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Retry loading workspace</button><button className="cms-button secondary" onClick={signOut}>Sign out</button></> : <><div className="loading-mark">TG</div><p>Loading your workspace…</p></>}</div>;
 
   async function save(nextPortfolio = portfolio, message = "Changes saved") {
+    if (savingRef.current) {
+      setError("A save is already in progress. Please wait.");
+      return false;
+    }
+    savingRef.current = true;
     try {
       const { data } = await api.put("/portfolio", nextPortfolio);
       setPortfolio({ ...emptyPortfolio, ...data }); setNotice(message); setError("");
       window.setTimeout(() => setNotice(""), 3000);
-    } catch (saveError) { setError(saveError.response?.data?.message || "Could not save changes."); }
+      return true;
+    } catch (saveError) {
+      setError(saveError.response?.data?.message || "Could not save changes.");
+      return false;
+    } finally {
+      savingRef.current = false;
+    }
   }
   function update(key, value) { setPortfolio(current => ({ ...current, [key]: value })); }
 
@@ -145,11 +158,11 @@ export default function Admin() {
         {active === "profile" && <Profile portfolio={portfolio} update={update} save={save} />}
         {active === "hero" && <Hero portfolio={portfolio} update={update} save={save} />}
         {active === "about" && <About portfolio={portfolio} update={update} save={save} />}
-        {active === "skills" && <CollectionEditor title="Skills" subtitle="Keep your toolkit current and easy to scan." field="skills" portfolio={portfolio} update={update} save={save} kind="skill" />}
-        {active === "projects" && <CollectionEditor title="Projects" subtitle="Curate the work you want visitors to remember." field="projects" portfolio={portfolio} update={update} save={save} kind="project" />}
-        {active === "certificates" && <CollectionEditor title="Certificates" subtitle="Manage credentials and supporting proof points." field="certificates" portfolio={portfolio} update={update} save={save} kind="certificate" />}
-        {active === "experience" && <CollectionEditor title="Experience & education" subtitle="Tell the story behind your craft." field="experience" portfolio={portfolio} update={update} save={save} kind="experience" />}
-        {active === "messages" && <Messages messages={messages} setMessages={setMessages} />}
+        {active === "skills" && <CollectionEditor title="Skills" subtitle="Keep your toolkit current and easy to scan." field="skills" portfolio={portfolio} save={save} kind="skill" />}
+        {active === "projects" && <CollectionEditor title="Projects" subtitle="Curate the work you want visitors to remember." field="projects" portfolio={portfolio} save={save} kind="project" />}
+        {active === "certificates" && <CollectionEditor title="Certificates" subtitle="Manage credentials and supporting proof points." field="certificates" portfolio={portfolio} save={save} kind="certificate" />}
+        {active === "experience" && <CollectionEditor title="Experience & education" subtitle="Tell the story behind your craft." field="experience" portfolio={portfolio} save={save} kind="experience" />}
+        {active === "messages" && <Messages messages={messages} setMessages={setMessages} setError={setError} setNotice={setNotice} />}
         {active === "socials" && <Socials portfolio={portfolio} update={update} save={save} />}
         {active === "media" && <Media portfolio={portfolio} update={update} save={save} setNotice={setNotice} />}
         {active === "resume" && <Resume portfolio={portfolio} update={update} save={save} setNotice={setNotice} />}
@@ -161,7 +174,7 @@ export default function Admin() {
 }
 
 function Login({ credentials, setCredentials, signIn, error, setError }) {
-  return <div className="cms-login"><div className="login-card"><div className="brand-mark">TG</div><p className="cms-kicker">Private workspace</p><h1>Welcome back.</h1><p className="login-copy">Sign in to manage every detail of your portfolio.</p><form onSubmit={async event => { event.preventDefault(); setError(""); try { await signIn(credentials.password); } catch (loginError) { setError(loginError.response?.data?.message || "Sign in failed."); } }}><Field label="Password" type="password" value={credentials.password} onChange={value => setCredentials({ ...credentials, password: value })} /><button className="cms-button primary full">Sign in <ArrowUpRight size={16} /></button>{error && <p className="form-error">{error}</p>}</form></div></div>;
+  return <div className="cms-login"><div className="login-card"><div className="brand-mark">TG</div><p className="cms-kicker">Private workspace</p><h1>Welcome back.</h1><p className="login-copy">Sign in to manage every detail of your portfolio.</p><form onSubmit={async event => { event.preventDefault(); setError(""); try { await signIn(credentials.password); } catch (loginError) { setError(loginError.response?.data?.message || "Sign in failed."); } }}><Field label="Password" type="password" value={credentials.password} required onChange={value => setCredentials({ ...credentials, password: value })} /><button type="submit" className="cms-button primary full">Sign in <ArrowUpRight size={16} /></button>{error && <p className="form-error">{error}</p>}</form></div></div>;
 }
 
 function PageIntro({ eyebrow, title, subtitle, action, onAction }) {
@@ -191,28 +204,81 @@ function About({ portfolio, update, save }) {
   return <><PageIntro title="About me" subtitle="Give the about section more context and personality." /><section className="cms-card form-card"><div className="field-grid"><Field label="Section heading" value={about.heading} onChange={value => set("heading", value)} /><Field label="Current focus" value={about.currentFocus} onChange={value => set("currentFocus", value)} /></div><Field label="Introduction" multiline value={about.introduction} onChange={value => set("introduction", value)} /><Field label="Additional description" multiline value={about.description} onChange={value => set("description", value)} /><div className="form-actions"><button className="cms-button primary" onClick={() => save()}>Save about section <Check size={16} /></button></div></section></>;
 }
 
-function CollectionEditor({ title, subtitle, field, portfolio, update, save, kind }) {
+function CollectionEditor({ title, subtitle, field, portfolio, save, kind }) {
   const [modal, setModal] = useState(null);
   const [filter, setFilter] = useState("");
   const items = portfolio[field] || [];
   const visible = items.filter(item => Object.values(item).join(" ").toLowerCase().includes(filter.toLowerCase()));
   const labels = { skill: ["name", "category", "icon"], project: ["title", "category", "description"], certificate: ["title", "issuer", "issueDate"], experience: ["title", "organization", "type"] }[kind];
-  const blank = { [labels[0]]: "", [labels[1]]: "", [labels[2]]: "", published: true, featured: false };
-  function commit(item) { const next = modal.index === -1 ? [...items, item] : items.map((entry, index) => index === modal.index ? item : entry); update(field, next); save({ ...portfolio, [field]: next }, `${title} updated`); setModal(null); }
-  function remove(index) { const next = items.filter((_, itemIndex) => itemIndex !== index); update(field, next); save({ ...portfolio, [field]: next }, `${title} item removed`); }
+  const blank = { [labels[0]]: "", [labels[1]]: "", [labels[2]]: "", published: true, featured: false, ...(kind === "experience" ? { type: "experience" } : {}), ...(kind === "project" ? { tags: [] } : {}) };
+  async function commit(item) {
+    const next = modal.index === -1 ? [...items, item] : items.map((entry, index) => index === modal.index ? item : entry);
+    return save({ ...portfolio, [field]: next }, `${title} updated`);
+  }
+  async function remove(index) {
+    if (!window.confirm("Delete this item? This cannot be undone.")) return;
+    const next = items.filter((_, itemIndex) => itemIndex !== index);
+    await save({ ...portfolio, [field]: next }, `${title} item removed`);
+  }
   return <><PageIntro title={title} subtitle={subtitle} action={`Add ${kind}`} onAction={() => setModal({ index: -1, item: blank })} /><section className="cms-card collection-card"><div className="collection-toolbar"><div className="global-search"><Search size={16} /><input value={filter} onChange={event => setFilter(event.target.value)} placeholder={`Search ${title.toLowerCase()}…`} /></div><span>{visible.length} items</span></div>{visible.length ? <div className="collection-list">{visible.map((item, index) => <div className="collection-row" key={item._id || `${item[labels[0]]}-${index}`}><div className="collection-symbol">{kind === "skill" ? <Zap size={17} /> : kind === "certificate" ? <ShieldCheck size={17} /> : kind === "experience" ? <GraduationCap size={17} /> : <FolderKanban size={17} />}</div><div className="collection-main"><strong>{item[labels[0]] || "Untitled"}</strong><span>{item[labels[1]] || "No category"} {item[labels[2]] && `· ${String(item[labels[2]]).slice(0, 70)}`}</span></div><span className={`badge ${item.published === false ? "muted" : "success"}`}>{item.published === false ? "Draft" : "Published"}</span><button className="icon-button" onClick={() => setModal({ index: items.indexOf(item), item: { ...item } })}><Pencil size={16} /></button><button className="icon-button danger" onClick={() => remove(items.indexOf(item))}><Trash2 size={16} /></button></div>)}</div> : <EmptyState title={`No ${title.toLowerCase()} yet`} text="Add your first item to start building this collection." action={`Add ${kind}`} onAction={() => setModal({ index: -1, item: blank })} />}</section>{modal && <ItemModal kind={kind} item={modal.item} onClose={() => setModal(null)} onSave={commit} />}</>;
 }
 
 function ItemModal({ kind, item, onClose, onSave }) {
   const [draft, setDraft] = useState(item);
+  const [saving, setSaving] = useState(false);
   const set = (key, value) => setDraft(current => ({ ...current, [key]: value }));
-  const labels = { skill: [["name", "Skill name"], ["category", "Category"], ["icon", "Icon name"]], project: [["title", "Project title"], ["category", "Category"], ["description", "Short description"], ["image", "Thumbnail URL"], ["url", "Live URL"], ["github", "GitHub URL"], ["tags", "Technology tags (comma separated)"]], certificate: [["title", "Certificate title"], ["issuer", "Issuing organization"], ["issueDate", "Issue date"], ["credentialUrl", "Credential URL"], ["fileUrl", "Certificate file URL"]], experience: [["title", "Title"], ["organization", "Organization"], ["type", "Type (experience, education, achievement)"], ["startDate", "Start date"], ["endDate", "End date"], ["description", "Description"]] }[kind]; return <Modal title={`${item.name || item.title ? "Edit" : "Add"} ${kind}`} onClose={onClose}><div className="modal-form">{labels.map(([key, label]) => <Field key={key} label={label} multiline={["description", "tags"].includes(key)} value={draft[key]} onChange={value => set(key, key === "tags" ? value : value)} />)}<label className="toggle-field"><input type="checkbox" checked={draft.published !== false} onChange={event => set("published", event.target.checked)} /><span>Visible on public website</span></label><div className="form-actions"><button className="cms-button secondary" onClick={onClose}>Cancel</button><button className="cms-button primary" onClick={() => onSave({ ...draft, ...(draft.tags && typeof draft.tags === "string" ? { tags: draft.tags.split(",").map(tag => tag.trim()).filter(Boolean) } : {}) })}>Save item <Check size={16} /></button></div></div></Modal>;
+  const labels = { skill: [["name", "Skill name"], ["category", "Category"], ["icon", "Icon name"]], project: [["title", "Project title"], ["category", "Category"], ["description", "Short description"], ["image", "Thumbnail URL"], ["url", "Live URL"], ["github", "GitHub URL"], ["tags", "Technology tags (comma separated)"]], certificate: [["title", "Certificate title"], ["issuer", "Issuing organization"], ["issueDate", "Issue date"], ["credentialUrl", "Credential URL"], ["fileUrl", "Certificate file URL"]], experience: [["title", "Title"], ["organization", "Organization"], ["type", "Type (experience, education, achievement)"], ["startDate", "Start date"], ["endDate", "End date"], ["description", "Description"]] }[kind];
+  const requiredKey = { skill: "name", project: "title", certificate: "title", experience: "title" }[kind];
+  async function submit(event) {
+    event.preventDefault();
+    setSaving(true);
+    const nextItem = { ...draft };
+    if (kind === "project") {
+      nextItem.tags = Array.isArray(draft.tags)
+        ? draft.tags
+        : String(draft.tags || "").split(",").map(tag => tag.trim()).filter(Boolean);
+    }
+    try {
+      if (await onSave(nextItem)) onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+  return <Modal title={`${item.name || item.title ? "Edit" : "Add"} ${kind}`} onClose={onClose}><form className="modal-form" onSubmit={submit}>{labels.map(([key, label]) => <Field key={key} label={label} multiline={["description", "tags"].includes(key)} value={key === "tags" && Array.isArray(draft[key]) ? draft[key].join(", ") : draft[key]} onChange={value => set(key, value)} required={key === requiredKey || (kind === "experience" && key === "type") || (kind === "certificate" && key === "fileUrl")} disabled={saving} options={kind === "experience" && key === "type" ? ["experience", "education", "achievement"] : kind === "skill" && key === "icon" ? skillIconNames : undefined} />)}<label className="toggle-field"><input type="checkbox" checked={draft.published !== false} disabled={saving} onChange={event => set("published", event.target.checked)} /><span>Visible on public website</span></label><div className="form-actions"><button type="button" className="cms-button secondary" onClick={onClose} disabled={saving}>Cancel</button><button type="submit" className="cms-button primary" disabled={saving}>{saving ? "Saving…" : "Save item"} <Check size={16} /></button></div></form></Modal>;
 }
 
-function Messages({ messages, setMessages }) {
+function Messages({ messages, setMessages, setError, setNotice }) {
   const [selected, setSelected] = useState(messages[0]);
-  async function toggleRead(message) { await api.patch(`/messages/${message._id}/read`); setMessages(messages.map(item => item._id === message._id ? { ...item, read: true } : item)); setSelected({ ...message, read: true }); }
-  return <><PageIntro title="Messages" subtitle="A calm place to respond to people reaching out." /><div className="inbox-layout cms-card"><div className="inbox-list"><div className="inbox-filter"><Mail size={16} /> {messages.length} conversations</div>{messages.map(message => <button className={`inbox-item ${selected?._id === message._id ? "selected" : ""}`} key={message._id} onClick={() => setSelected(message)}><div className={`message-avatar ${message.read ? "" : "unread"}`}>{message.name?.slice(0, 1).toUpperCase()}</div><div><strong>{message.name}</strong><span>{message.email}</span><p>{message.message}</p></div>{!message.read && <i />}</button>)}</div><div className="message-detail">{selected ? <><div className="detail-heading"><div className="message-avatar large">{selected.name?.slice(0, 1).toUpperCase()}</div><div><h2>{selected.name}</h2><span>{selected.email} · {new Date(selected.createdAt).toLocaleString()}</span></div></div><p className="detail-copy">{selected.message}</p><div className="form-actions"><a className="cms-button primary" href={`mailto:${selected.email}`}>Reply by email <ArrowUpRight size={15} /></a>{!selected.read && <button className="cms-button secondary" onClick={() => toggleRead(selected)}>Mark as read</button>}</div></> : <EmptyState title="Select a message" text="Choose a conversation to view its details." />}</div></div></>;
+  const [deleting, setDeleting] = useState(false);
+  useEffect(() => {
+    if (!selected || !messages.some(message => message._id === selected._id)) setSelected(messages[0] || null);
+  }, [messages, selected]);
+  async function toggleRead(message) {
+    try {
+      const { data } = await api.patch(`/messages/${message._id}/read`);
+      setMessages(current => current.map(item => item._id === message._id ? data : item));
+      setSelected(data);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not update the message.");
+    }
+  }
+  async function deleteMessage(message) {
+    if (!window.confirm("Delete this message? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/messages/${message._id}`);
+      const remaining = messages.filter(item => item._id !== message._id);
+      setMessages(remaining);
+      setSelected(remaining[0] || null);
+      setNotice("Message deleted");
+      setError("");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not delete the message.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+  return <><PageIntro title="Messages" subtitle="A calm place to respond to people reaching out." /><div className="inbox-layout cms-card"><div className="inbox-list"><div className="inbox-filter"><Mail size={16} /> {messages.length} conversations</div>{messages.map(message => <button className={`inbox-item ${selected?._id === message._id ? "selected" : ""}`} key={message._id} onClick={() => setSelected(message)}><div className={`message-avatar ${message.read ? "" : "unread"}`}>{message.name?.slice(0, 1).toUpperCase()}</div><div><strong>{message.name}</strong><span>{message.email}</span><p>{message.message}</p></div>{!message.read && <i />}</button>)}</div><div className="message-detail">{selected ? <><div className="detail-heading"><div className="message-avatar large">{selected.name?.slice(0, 1).toUpperCase()}</div><div><h2>{selected.name}</h2><span>{selected.email} · {new Date(selected.createdAt).toLocaleString()}</span></div></div><p className="detail-copy">{selected.message}</p><div className="form-actions"><a className="cms-button primary" href={`mailto:${selected.email}`}>Reply by email <ArrowUpRight size={15} /></a>{!selected.read && <button className="cms-button secondary" onClick={() => toggleRead(selected)}>Mark as read</button>}<button className="icon-button danger" aria-label="Delete message" title="Delete message" onClick={() => deleteMessage(selected)} disabled={deleting}><Trash2 size={16} /></button></div></> : <EmptyState title="Select a message" text="Choose a conversation to view its details." />}</div></div></>;
 }
 
 function Socials({ portfolio, update, save }) {
@@ -235,8 +301,8 @@ function Media({ portfolio, update, save, setNotice }) {
         formData.append("file", file);
         const { data } = await api.post("/admin/media/upload", formData);
         next = [...next, data];
+        update("media", next);
       }
-      update("media", next);
       setNotice("Uploaded to Cloudinary");
     } catch (error) {
       setUploadError(error.response?.data?.message || "Upload failed");
@@ -245,6 +311,7 @@ function Media({ portfolio, update, save, setNotice }) {
     }
   }
   async function removeAsset(asset) {
+    if (!window.confirm(`Delete "${asset.name}" from the media library?`)) return;
     try {
       await api.delete(`/admin/media/${asset._id}`);
       const next = media.filter(item => item._id !== asset._id);

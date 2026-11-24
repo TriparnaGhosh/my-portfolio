@@ -34,7 +34,10 @@ const portfolioSchema = new mongoose.Schema({
     currentFocus: String,
     stats: [{ label: String, value: String }]
   },
-  skills: [{ name: String, category: String, level: Number, icon: String }],
+  skills: [{
+    name: String, category: String, level: Number, icon: String,
+    published: { type: Boolean, default: true }
+  }],
   projects: [{
     title: String, description: String, image: String, url: String, github: String,
     tags: [String], category: String, slug: String, details: String,
@@ -66,6 +69,7 @@ const portfolioSchema = new mongoose.Schema({
     title: String, description: String, keywords: [String],
     ogTitle: String, ogDescription: String, ogImage: String, canonicalUrl: String, noIndex: Boolean
   },
+  dataVersion: { type: Number, default: 0 },
   updatedAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
