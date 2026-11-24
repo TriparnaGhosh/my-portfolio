@@ -1,0 +1,85 @@
+body{
+  margin: 0;
+  font-family: 'Arial', sans-serif;
+  text-align: center;
+  color: #333;
+}
+
+header {
+  background:linear-gradient(to right, #12c2e9, #c471ed, #f64f59);
+  color: rgb(7, 1, 125);
+  padding: 50px 0;
+  text-align: center;
+}
+
+nav a {
+  color: rgb(24, 0, 61);
+  margin: 0 15px;
+  text-decoration: none;
+}
+
+.hero {
+  background-color: white;
+  color:#ea0303;
+  padding: 100px 20px;
+}
+
+.about {
+  background-color:white;
+  padding: 50px 20px;
+}
+
+.profile img {
+  width: 150px;
+  border-radius: 50%;
+  border-radius: 50%;
+}
+
+.skill-row {
+  background:linear-gradient(to left,rgb(228, 165, 175),rgb(212, 17, 50));
+  margin: 40px auto;
+  width: 90%;
+  max-width: 600px;
+}
+
+hr {
+  border: 0;
+  height: 3px;
+  background: #ea0303;
+  margin: 40px auto;
+  width: 60%;
+}
+
+.project {
+  background: rgb(173, 213, 25);
+  color:#ea0303;
+  padding: 20px;
+  margin: 15px 9px;
+  border-left: 5px solid #045202;
+  border-right: 5px solid #02652a;
+}
+h3{
+  color:#1b0276
+}
+
+.contact {
+  display: inline-block;
+   background:linear-gradient(to left,rgb(105, 16, 31),rgb(88, 65, 182));
+  
+  color: rgb(103, 223, 33);
+  padding: 12px 25px;
+  border-radius: 8px;
+  text-decoration: none;
+  margin-top: 20px;
+}
+
+.footer{
+   background:linear-gradient(to right, #12c2e9, #c471ed, #f64f59);
+  
+  height:150px;
+  width:100%;
+  margin-top: 50px;
+  color: #fff;
+  font-size: 1rem;
+  text-align:center;
+}
